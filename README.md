@@ -38,7 +38,7 @@ A request goes from the browser to Express to Postgres, and the answer travels b
 Adding a recipe:
 
 ```bash
-curl -X POST https://kitchen-duo.onrender.com \
+curl -X POST https://kitchen-duo.onrender.com/recipes \
   -H "Content-Type: application/json" \
   -d '{"name":"Dal Tadka","servings":4,"ingredients":"1 cup toor dal, 1 onion, 2 tomatoes, ghee, cumin","instructions":"Boil dal, make tadka, mix."}'
 ```
