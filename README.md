@@ -4,7 +4,7 @@ A cooking app that answers one question: what are we making tomorrow, and how mu
 
 You pick a dish, say paneer butter masala. You get the recipe. You change the number of servings, and the amounts change with it. After you cook, you upload a photo and earn points, because dinner should feel a little like winning.
 
-**Live backend:** https://YOUR-RENDER-LINK.onrender.com
+**Live backend:** https://kitchen-duo.onrender.com
 
 (It runs on a free server that naps when nobody visits. If the first load takes about 30 seconds, it's just waking up.)
 
