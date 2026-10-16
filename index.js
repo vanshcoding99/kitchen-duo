@@ -56,7 +56,44 @@ app.post('/recipes', async (req, res) => {
     res.status(500).send('Could not add recipe');
   }
 });
+app.get('/recipes/:id/scaled', async (req, res) => {
+  const id = Number(req.params.id);
+  const wanted = Number(req.query.servings);
 
+  if (!Number.isInteger(id) || !(wanted > 0)) {
+    return res.status(400).send('Use /recipes/1/scaled?servings=6');
+  }
+
+  try {
+    const recipe = await pool.query('SELECT * FROM recipes WHERE id = $1', [id]);
+    if (recipe.rows.length === 0) {
+      return res.status(404).send('Recipe not found');
+    }
+
+    const ingredients = await pool.query(
+      'SELECT item, amount, unit FROM ingredients WHERE recipe_id = $1 ORDER BY id',
+      [id]
+    );
+
+    const factor = wanted / recipe.rows[0].servings;
+
+    const scaled = ingredients.rows.map((row) => ({
+      item: row.item,
+      unit: row.unit,
+      amount: row.amount === null ? null : Math.round(Number(row.amount) * factor * 100) / 100,
+    }));
+
+    res.json({
+      name: recipe.rows[0].name,
+      original_servings: recipe.rows[0].servings,
+      servings: wanted,
+      ingredients: scaled,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Could not scale recipe');
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
