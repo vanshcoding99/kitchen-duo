@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kitchen Duo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px 16px; background: #fbf7f2; color: #2b2118; }
+    h1 { margin-bottom: 4px; }
+    .sub { margin-top: 0; color: #6b5b4b; }
+    label { display: block; margin: 16px 0 6px; font-weight: 600; }
+    select, input, button { font-size: 16px; padding: 10px; border-radius: 8px; border: 1px solid #cdbfae; width: 100%; box-sizing: border-box; }
+    button { background: #c4501b; color: #fff; border: none; margin-top: 16px; cursor: pointer; }
+    ul { padding-left: 20px; line-height: 1.8; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>Kitchen Duo</h1>
+  <p class="sub">Pick a dish, pick servings, see what you need.</p>
+
+  <label for="recipe">Recipe</label>
+  <select id="recipe"></select>
+
+  <label for="servings">Servings</label>
+  <input id="servings" type="number" min="1" value="4">
+
+  <button id="go">Show ingredients</button>
+
+  <div id="result"></div>
+
+  <script>
+    const recipeSelect = document.getElementById('recipe');
+    const servingsInput = document.getElementById('servings');
+    const result = document.getElementById('result');
+
+    async function loadRecipes() {
+      const res = await fetch('/recipes');
+      const recipes = await res.json();
+      for (const r of recipes) {
+        const option = document.createElement('option');
+        option.value = r.id;
+        option.textContent = r.name;
+        recipeSelect.appendChild(option);
+      }
+    }
+
+    async function showScaled() {
+      result.className = '';
+      result.textContent = 'Loading...';
+
+      const url = '/recipes/' + recipeSelect.value + '/scaled?servings=' + servingsInput.value;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        result.className = 'error';
+        result.textContent = 'Something went wrong. Check the servings number.';
+        return;
+      }
+
+      const data = await res.json();
+      result.textContent = '';
+
+      const title = document.createElement('h2');
+      title.textContent = data.name + ' for ' + data.servings + ' servings';
+      result.appendChild(title);
+
+      const list = document.createElement('ul');
+      for (const g of data.ingredients) {
+        const li = document.createElement('li');
+        li.textContent = [g.amount, g.unit, g.item]
+          .filter((x) => x !== null && x !== '')
+          .join(' ');
+        list.appendChild(li);
+      }
+      result.appendChild(list);
+    }
+
+    document.getElementById('go').addEventListener('click', showScaled);
+    loadRecipes();
+  </script>
+</body>
+</html>
