@@ -20,6 +20,7 @@
   <p class="sub">Pick a dish, pick servings, see what you need.</p>
 
   <label for="recipe">Recipe</label>
+  <input id="search" type="search" placeholder="Search recipes...">
   <select id="recipe"></select>
 
   <label for="servings">Servings</label>
@@ -34,16 +35,29 @@
     const servingsInput = document.getElementById('servings');
     const result = document.getElementById('result');
 
-    async function loadRecipes() {
-      const res = await fetch('/recipes');
-      const recipes = await res.json();
-      for (const r of recipes) {
-        const option = document.createElement('option');
-        option.value = r.id;
-        option.textContent = r.name;
-        recipeSelect.appendChild(option);
-      }
-    }
+    let allRecipes = [];
+const searchInput = document.getElementById('search');
+
+function fillDropdown(list) {
+  recipeSelect.textContent = '';
+  for (const r of list) {
+    const option = document.createElement('option');
+    option.value = r.id;
+    option.textContent = r.name;
+    recipeSelect.appendChild(option);
+  }
+}
+
+async function loadRecipes() {
+  const res = await fetch('/recipes');
+  allRecipes = await res.json();
+  fillDropdown(allRecipes);
+}
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  fillDropdown(allRecipes.filter((r) => r.name.toLowerCase().includes(q)));
+});
 
     async function showScaled() {
       result.className = '';
@@ -74,6 +88,14 @@
         list.appendChild(li);
       }
       result.appendChild(list);
+      const how = document.createElement('h3');
+how.textContent = 'Method';
+result.appendChild(how);
+
+const steps = document.createElement('p');
+steps.style.whiteSpace = 'pre-line';
+steps.textContent = data.instructions || 'No instructions yet.';
+result.appendChild(steps);
     }
 
     document.getElementById('go').addEventListener('click', showScaled);
