@@ -11,6 +11,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
+function requireKey(req, res, next) {
+  const key = req.get('x-api-key');
+  if (!key || key !== process.env.ADMIN_KEY) {
+    return res.status(401).send('Missing or wrong key');
+  }
+  next();
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
@@ -39,7 +47,7 @@ app.get('/recipes', async (req, res) => {
   }
 });
 
-app.post('/recipes', async (req, res) => {
+app.post('/recipes', requireKey, async (req, res) => {
   const { name, servings, ingredients, instructions } = req.body;
 
   if (!name) {
@@ -57,6 +65,7 @@ app.post('/recipes', async (req, res) => {
     res.status(500).send('Could not add recipe');
   }
 });
+
 app.get('/recipes/:id/scaled', async (req, res) => {
   const id = Number(req.params.id);
   const wanted = Number(req.query.servings);
@@ -96,7 +105,8 @@ app.get('/recipes/:id/scaled', async (req, res) => {
     res.status(500).send('Could not scale recipe');
   }
 });
-app.post('/recipes/:id/ingredients', async (req, res) => {
+
+app.post('/recipes/:id/ingredients', requireKey, async (req, res) => {
   const id = Number(req.params.id);
   const { item, amount, unit } = req.body;
 
@@ -123,6 +133,7 @@ app.post('/recipes/:id/ingredients', async (req, res) => {
     res.status(500).send('Could not add ingredient');
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
