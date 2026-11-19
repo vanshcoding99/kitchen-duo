@@ -39,6 +39,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// CACHE (piece 1): the whiteboard and how long it stays fresh
+const cache = new Map();
+const CACHE_TTL_MS = 60 * 1000;
+
 app.get('/', (req, res) => {
   res.send('Kitchen Duo backend is alive!');
 });
@@ -53,9 +57,21 @@ app.get('/db-test', async (req, res) => {
   }
 });
 
+// CACHE (piece 2): check the whiteboard first, then Postgres
 app.get('/recipes', async (req, res) => {
+  const cached = cache.get('recipes');
+  if (cached && Date.now() < cached.expires) {
+    res.set('X-Cache', 'HIT');
+    return res.json(cached.data);
+  }
+
   try {
     const result = await pool.query('SELECT * FROM recipes ORDER BY id');
+    cache.set('recipes', {
+      data: result.rows,
+      expires: Date.now() + CACHE_TTL_MS,
+    });
+    res.set('X-Cache', 'MISS');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -75,6 +91,8 @@ app.post('/recipes', requireKey, async (req, res) => {
       'INSERT INTO recipes (name, servings, ingredients, instructions) VALUES ($1, $2, $3, $4) RETURNING *',
       [name, servings || 2, ingredients, instructions]
     );
+    // CACHE (piece 3): the list changed, so erase the whiteboard
+    cache.delete('recipes');
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -172,6 +190,7 @@ app.post('/register', async (req, res) => {
     res.status(500).send('Could not register');
   }
 });
+
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
