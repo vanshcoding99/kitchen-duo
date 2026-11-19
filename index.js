@@ -4,6 +4,8 @@ dns.setDefaultResultOrder('ipv4first');
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +19,20 @@ function requireKey(req, res, next) {
     return res.status(401).send('Missing or wrong key');
   }
   next();
+}
+
+function requireAuth(req, res, next) {
+  const header = req.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) {
+    return res.status(401).send('Please log in');
+  }
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    res.status(401).send('Login expired or invalid');
+  }
 }
 
 const pool = new Pool({
@@ -132,6 +148,63 @@ app.post('/recipes/:id/ingredients', requireKey, async (req, res) => {
     console.error(err);
     res.status(500).send('Could not add ingredient');
   }
+});
+
+app.post('/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password || password.length < 8) {
+    return res.status(400).send('Need an email and a password of at least 8 characters');
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
+      [email.toLowerCase().trim(), hash]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).send('That email is already registered');
+    }
+    console.error(err);
+    res.status(500).send('Could not register');
+  }
+});
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).send('Need an email and a password');
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      [email.toLowerCase().trim()]
+    );
+    const user = result.rows[0];
+    const ok = user && (await bcrypt.compare(password, user.password_hash));
+
+    if (!ok) {
+      return res.status(401).send('Wrong email or password');
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Could not log in');
+  }
+});
+
+app.get('/me', requireAuth, (req, res) => {
+  res.json({ id: req.user.id, email: req.user.email });
 });
 
 app.listen(PORT, () => {
